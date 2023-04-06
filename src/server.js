@@ -3,6 +3,7 @@ import http from "node:http";
 import { json } from "./middlewares/json.js";
 import { Database } from "./database.js";
 import { routes } from "./routes.js";
+import { extractQueryParams } from "./ultis/extract-query-params.js";
 
 // GET, POST, PUT, PATCH, DELETE
 
@@ -16,6 +17,18 @@ import { routes } from "./routes.js";
 
 // HTTP Status Code
 
+
+// Query Parameters: URL Stateful => Filtros, Paginação, Não-obrigatório
+//localhost:3333/users?userId=1&name=Diego
+
+// Route Parameters: Identificação de recurso
+//localhost:3333/users/1
+
+// Request Body: Envio de informações de um formulário (HTTPs) 
+//GET localhost:3333/users/1
+//DELETE localhost:3333/users/1
+//POST localhost:3333/users/1
+
 const server = http.createServer(async (req, res) => {
 
   const { method, url } = req
@@ -23,12 +36,20 @@ const server = http.createServer(async (req, res) => {
   await json(req, res)
 
   const route = routes.find(route => {
-    return route.method === method && route.path === url
+    return route.method === method && route.path.test(url)
   })
 
-  if(route) {
+  if (route) {
+    const routeParams = req.url.match(route.path)
+
+    const { query, ...params } = routeParams.groups
+
+    req.params = params
+    req.query = query  ? extractQueryParams(query) : {}
+
     return route.handler(req, res)
   }
+
 
   return res.writeHead(404).end()
 });
